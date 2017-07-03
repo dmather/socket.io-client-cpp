@@ -70,7 +70,7 @@ namespace sio
         
         void off_error();
 
-        void emit(std::string const& name, message::list const& msglist = nullptr, std::function<void (message::list const&)> const& ack = nullptr);
+        void send(const std::string &name, const message::list &msglist = nullptr, std::function<void (const message::list&)> const& ack = nullptr);
         
         std::string const& get_namespace() const;
         

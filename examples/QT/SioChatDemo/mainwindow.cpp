@@ -4,7 +4,7 @@
 #include <mutex>
 #include <cstdlib>
 
-#define kURL "ws://localhost:3000"
+#define kURL "ws://192.168.1.101:3000"
 #ifdef WIN32
 #define BIND_EVENT(IO,EV,FN) \
     do{ \
@@ -60,7 +60,7 @@ void MainWindow::SendBtnClicked()
     {
         QByteArray bytes = text.toUtf8();
         std::string msg(bytes.data(),bytes.length());
-        _io->socket()->emit("new message",msg);
+        _io->socket()->send("new message",msg);
         text.append(" : You");
         QListWidgetItem *item = new QListWidgetItem(text);
         item->setTextAlignment(Qt::AlignRight);
@@ -91,7 +91,7 @@ void MainWindow::showEvent(QShowEvent *event)
 void MainWindow::TypingStop()
 {
     m_timer.reset();
-    _io->socket()->emit("stop typing");
+    _io->socket()->send("stop typing");
 }
 
 void MainWindow::TypingChanged()
@@ -102,7 +102,7 @@ void MainWindow::TypingChanged()
     }
     else
     {
-        _io->socket()->emit("typing");
+        _io->socket()->send("typing");
     }
     m_timer.reset(new QTimer(this));
     connect(m_timer.get(),SIGNAL(timeout()),this,SLOT(TypingStop()));
@@ -260,7 +260,7 @@ void MainWindow::OnConnected(std::string const& nsp)
 {
     QByteArray bytes = m_name.toUtf8();
     std::string nickName(bytes.data(),bytes.length());
-    _io->socket()->emit("add user", nickName);
+    _io->socket()->send("add user", nickName);
 }
 
 void MainWindow::OnClosed(client::close_reason const& reason)
