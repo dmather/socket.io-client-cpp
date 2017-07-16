@@ -25,7 +25,7 @@ namespace sio
 {
     /*************************public:*************************/
     client_impl::client_impl() :
-        m_con_state(con_closed),
+        m_con_state(CON_CLOSED),
         m_ping_interval(0),
         m_ping_timeout(0),
         m_network_thread(),
@@ -72,7 +72,7 @@ namespace sio
         }
         if(m_network_thread)
         {
-            if(m_con_state == con_closing||m_con_state == con_closed)
+            if(m_con_state == CON_CLOSING || m_con_state == CON_CLOSED)
             {
                 //if client is closing, join to wait.
                 //if client is closed, still need to join,
@@ -86,18 +86,18 @@ namespace sio
                 return;
             }
         }
-        m_con_state = con_opening;
+        m_con_state = CON_OPENING;
         m_base_url = uri;
         m_reconn_made = 0;
 
         string query_str;
-        for(map<string,string>::const_iterator it=query.begin();it!=query.end();++it){
+        for(map<string, string>::const_iterator it = query.begin(); it != query.end(); ++it) {
             query_str.append("&");
             query_str.append(it->first);
             query_str.append("=");
             query_str.append(it->second);
         }
-        m_query_string=move(query_str);
+        m_query_string = move(query_str);
 
         m_http_headers = headers;
 
@@ -139,14 +139,14 @@ namespace sio
 
     void client_impl::close()
     {
-        m_con_state = con_closing;
+        m_con_state = CON_CLOSING;
         this->sockets_invoke_void(&sio::socket::close);
         m_client.get_io_service().dispatch(lib::bind(&client_impl::close_impl, this,close::status::normal,"End by user"));
     }
 
     void client_impl::sync_close()
     {
-        m_con_state = con_closing;
+        m_con_state = CON_CLOSING;
         this->sockets_invoke_void(&sio::socket::close);
         m_client.get_io_service().dispatch(lib::bind(&client_impl::close_impl, this,close::status::normal,"End by user"));
         if(m_network_thread)
@@ -199,35 +199,35 @@ namespace sio
 
     void client_impl::connect_impl(const string& uri, const string& queryString)
     {
-        do{
+        do {
             websocketpp::uri uo(uri);
-            ostringstream ss;
+            ostringstream web_socket_url;
 #if SIO_TLS
-            ss<<"wss://";
+            web_socket_url << "wss://";
 #else
-            ss<<"ws://";
+            web_socket_url << "ws://";
 #endif
             const std::string host(uo.get_host());
             // As per RFC2732, literal IPv6 address should be enclosed in "[" and "]".
-            if(host.find(':')!=std::string::npos){
-                ss<<"["<<uo.get_host()<<"]";
+            if(host.find(':') != std::string::npos) {
+                web_socket_url << "[" << uo.get_host() << "]";
             } else {
-                ss<<uo.get_host();
+                web_socket_url << uo.get_host();
             }
-            ss<<":"<<uo.get_port()<<"/socket.io/?EIO=4&transport=websocket";
-            if(m_sid.size()>0){
-                ss<<"&sid="<<m_sid;
+            web_socket_url << ":" << uo.get_port() << "/socket.io/?EIO=4&transport=websocket";
+            if(m_sid.size() > 0) {
+                web_socket_url << "&sid=" << m_sid;
             }
-            ss<<"&t="<<time(NULL)<<queryString;
-            lib::error_code ec;
-            client_type::connection_ptr con = m_client.get_connection(ss.str(), ec);
-            if (ec) {
+            web_socket_url << "&t=" << time(NULL) << queryString;
+            lib::error_code error_code;
+            client_type::connection_ptr con = m_client.get_connection(web_socket_url.str(), error_code);
+            if (error_code) {
                 m_client.get_alog().write(websocketpp::log::alevel::app,
-                                          "Get Connection Error: "+ec.message());
+                                          "Get Connection Error: " + error_code.message());
                 break;
             }
 
-            for( auto&& header: m_http_headers ) {
+            for(auto&& header: m_http_headers) {
                 con->replace_header(header.first, header.second);
             }
 
@@ -235,15 +235,14 @@ namespace sio
             return;
         }
         while(0);
-        if(m_fail_listener)
-        {
+        if(m_fail_listener) {
             m_fail_listener();
         }
     }
 
     void client_impl::close_impl(close::status::value const& code,string const& reason)
     {
-        LOG("Close by reason:"<<reason << endl);
+        LOG("Close by reason:" << reason << endl);
         if(m_reconn_timer)
         {
             m_reconn_timer->cancel();
@@ -262,7 +261,7 @@ namespace sio
 
     void client_impl::send_impl(shared_ptr<const string> const& payload_ptr,frame::opcode::value opcode)
     {
-        if(m_con_state == con_opened)
+        if(m_con_state == CON_OPENED)
         {
             lib::error_code ec;
             m_client.send(m_con,*payload_ptr,opcode,ec);
@@ -319,9 +318,9 @@ namespace sio
         {
             return;
         }
-        if(m_con_state == con_closed)
+        if(m_con_state == CON_CLOSED)
         {
-            m_con_state = con_opening;
+            m_con_state = CON_OPENING;
             m_reconn_made++;
             this->reset_states();
             LOG("Reconnecting..."<<endl);
@@ -366,7 +365,7 @@ namespace sio
     void client_impl::on_fail(connection_hdl con)
     {
         m_con.reset();
-        m_con_state = con_closed;
+        m_con_state = CON_CLOSED;
         this->sockets_invoke_void(&sio::socket::on_disconnect);
         LOG("Connection failed." << endl);
         if(m_reconn_made<m_reconn_attempts)
@@ -388,7 +387,7 @@ namespace sio
     void client_impl::on_open(connection_hdl con)
     {
         LOG("Connected." << endl);
-        m_con_state = con_opened;
+        m_con_state = CON_OPENED;
         m_con = con;
         m_reconn_made = 0;
         this->sockets_invoke_void(&sio::socket::on_open);
@@ -399,7 +398,7 @@ namespace sio
     void client_impl::on_close(connection_hdl con)
     {
         LOG("Client Disconnected." << endl);
-        m_con_state = con_closed;
+        m_con_state = CON_CLOSED;
         lib::error_code ec;
         close::status::value code = close::status::normal;
         client_type::connection_ptr conn_ptr  = m_client.get_con_from_hdl(con, ec);
@@ -533,7 +532,7 @@ failed:
         }
     }
     
-    void client_impl::on_encode(bool isBinary,shared_ptr<const string> const& payload)
+    void client_impl::on_encode(bool isBinary, shared_ptr<const string> const& payload)
     {
         LOG("encoded payload length:"<<payload->length()<<endl);
         m_client.get_io_service().dispatch(lib::bind(&client_impl::send_impl,this,payload,isBinary?frame::opcode::binary:frame::opcode::text));
